@@ -36,15 +36,20 @@ type TopicServiceI interface {
 
 type Server struct {
 	log     *slog.Logger
+
+	listener net.Listener
+
 	methods map[uint16]*MethodDesc
 }
 
 func New(
 	log *slog.Logger,
+	l net.Listener,
 	topicService TopicServiceI,
 ) *Server {
 	return &Server{
 		log:     log,
+		listener:l,
 		methods: make(map[uint16]*MethodDesc),
 	}
 }
@@ -60,15 +65,19 @@ func (s *Server) RegisterService(methods []*MethodDesc) error {
 	return nil
 }
 
-func (s *Server) Serve(lis net.Listener) error {
+func (s *Server) Serve() error {
 	for {
-		conn, err := lis.Accept()
+		conn, err := s.listener.Accept()
 		if err != nil {
 			return fmt.Errorf("failed to accept connection: %v", err)
 		}
 
 		go s.handleClient(conn)
 	}
+}
+
+func (s *Server) GracefulStop() {
+	s.listener.Close()
 }
 
 func (s *Server) handleClient(conn net.Conn) {

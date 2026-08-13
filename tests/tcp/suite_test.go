@@ -22,20 +22,29 @@ func TestTCPPSuite(t *testing.T) {
 type tcpSuite struct {
 	suite.Suite
 
+	application *app.App
+
 	port int
 }
 
-func (s *tcpSuite) SetupTest() {
+func (s *tcpSuite) SetupSuite() {
 	log := setupLogger()
 	s.port = 9001
-	application := app.New(log, s.port, "../../tests/storage/kraft-combined-logs")
+	application, err := app.New(log, s.port, "../../tests/storage/kraft-combined-logs")
+	s.NoError(err)
+	s.application = application
 
-	go func() {
-		err := application.TCPCServer.Run()
+	go func(application_ *app.App) {
+		err := application_.TCPCServer.Run()
 		s.NoError(err)
-	}()
+	}(application)
 
 	time.Sleep(1 * time.Millisecond)
+}
+
+
+func (s *tcpSuite) TearDownSuite() {
+	s.application.TCPCServer.Stop()
 }
 
 func setupLogger() *slog.Logger {

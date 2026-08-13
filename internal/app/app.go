@@ -16,17 +16,17 @@ func New(
 	log *slog.Logger,
 	tcpPort int,
 	storagePath string,
-) *App {
+) (*App, error) {
 	storage, err := filelogs.New(storagePath)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	topicService := topicservice.New(storage)
 
-	tcpApp := tcpapp.New(log, tcpPort, topicService)
+	tcpApp, err := tcpapp.New(log, tcpPort, topicService)
 
 	return &App{
 		TCPCServer: tcpApp,
-	}
+	}, nil
 }

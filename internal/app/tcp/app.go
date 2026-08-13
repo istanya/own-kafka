@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strconv"
 
 	topicservice "own-kafka/internal/services/topic-service"
 	tcpserver "own-kafka/internal/tcp"
@@ -20,8 +21,14 @@ func New(
 	log *slog.Logger,
 	port int,
 	topicService *topicservice.TopicService,
-) *App {
-	tcpServer := tcpserver.New(log, topicService)
+) (*App,error) {
+	const op = "tcpapp.New"
+
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	tcpServer := tcpserver.New(log, l, topicService)
 
 	tcpinfo.Register(tcpServer, topicService)
 
@@ -29,23 +36,20 @@ func New(
 		log:       log,
 		port:      port,
 		tcpServer: tcpServer,
-	}
+	}, nil
 }
 
 // Run runs TCP server.
 func (a *App) Run() error {
 	const op = "tcpapp.Run"
 
-	l, err := net.Listen("tcp", fmt.Sprintf(":%d", a.port))
-	if err != nil {
+	if err := a.tcpServer.Serve(); err != nil {
+		a.log.Error("failed to start TCP server", slog.String("op", op), slog.Int("port", a.port), slog.Any("error", err))
+
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	a.log.Info("tcp server started", slog.String("addr", l.Addr().String()))
-
-	if err := a.tcpServer.Serve(l); err != nil {
-		return fmt.Errorf("%s: %w", op, err)
-	}
+	a.log.Info("tcp server started", slog.String("port", strconv.Itoa(a.port)))
 
 	return nil
 }
@@ -53,6 +57,8 @@ func (a *App) Run() error {
 // Stop stops TCP server.
 func (a *App) Stop() {
 	const op = "tcpapp.Stop"
+
+	a.tcpServer.GracefulStop()
 
 	a.log.With(slog.String("op", op)).
 		Info("stopping gRPC server", slog.Int("port", a.port))

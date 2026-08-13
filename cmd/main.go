@@ -20,7 +20,10 @@ const (
 func main() {
 	log := setupLogger(envLocal)
 
-	application := app.New(log, 9092, "../tmp/kraft-combined-logs")
+	application, err := app.New(log, 9092, "../tmp/kraft-combined-logs")
+	if err!=nil {
+		panic(err)
+	}
 
 	go func() {
 		application.TCPCServer.Run()
